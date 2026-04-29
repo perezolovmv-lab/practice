@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,13 +28,16 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ci.nsu.mobile.main.ui.theme.PracticeTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,10 +56,19 @@ class MainActivity : ComponentActivity() {
 fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Автоматически очищаем сообщение об ошибке через 3 секунды
+    LaunchedEffect(uiState.errorMessage) {
+        if (uiState.errorMessage.isNotEmpty() &&
+            (uiState.errorMessage.contains("✅") || uiState.errorMessage.contains("❌") || uiState.errorMessage.contains("⚠️"))) {
+            delay(3000)
+            viewModel.clearErrorMessage()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Список покупок") },
+                title = { Text("📝 Список покупок") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -67,26 +81,61 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            Row(
+            // Поле ввода и кнопка добавления
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                TextField(
-                    value = uiState.newItemText,
-                    onValueChange = { viewModel.onNewItemTextChanged(it) },
-                    label = { Text("Название товара") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-
-                Button(
-                    onClick = { viewModel.addItem() },
-                    modifier = Modifier.align(Alignment.CenterVertically)
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Text("Добавить")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextField(
+                            value = uiState.newItemText,
+                            onValueChange = { viewModel.onNewItemTextChanged(it) },
+                            label = { Text("Название товара") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            isError = uiState.errorMessage.contains("❌") || uiState.errorMessage.contains("⚠️")
+                        )
+
+                        Button(
+                            onClick = { viewModel.addItem() },
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        ) {
+                            Text("➕ Добавить")
+                        }
+                    }
+
+                    // Отображение сообщений об ошибках/успехе
+                    if (uiState.errorMessage.isNotEmpty()) {
+                        Text(
+                            text = uiState.errorMessage,
+                            modifier = Modifier.padding(top = 8.dp),
+                            color = when {
+                                uiState.errorMessage.contains("✅") -> Color.Green
+                                uiState.errorMessage.contains("⚠️") -> Color(0xFFFF9800) // Оранжевый
+                                else -> Color.Red
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
 
+            // Статистика списка
+            if (uiState.items.isNotEmpty()) {
+                Text(
+                    text = "📊 Всего: ${uiState.items.size} | ✅ Куплено: ${uiState.items.count { it.isBought }}",
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            // Список товаров
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -109,38 +158,46 @@ fun ShoppingItemRow(
     onToggleBought: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(
-                checked = item.isBought,
-                onCheckedChange = { onToggleBought() }
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Checkbox(
+                    checked = item.isBought,
+                    onCheckedChange = { onToggleBought() }
+                )
 
-            Text(
-                text = item.name,
-                modifier = Modifier.padding(start = 8.dp),
-                style = if (item.isBought) {
-                    MaterialTheme.typography.bodyLarge.copy(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                } else {
-                    MaterialTheme.typography.bodyLarge
-                }
-            )
-        }
+                Text(
+                    text = item.name,
+                    modifier = Modifier.padding(start = 8.dp),
+                    style = if (item.isBought) {
+                        MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    } else {
+                        MaterialTheme.typography.bodyLarge
+                    }
+                )
+            }
 
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Удалить"
-            )
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Удалить",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

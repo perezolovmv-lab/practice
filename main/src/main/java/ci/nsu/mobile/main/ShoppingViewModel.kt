@@ -15,7 +15,7 @@ data class ShoppingItem(
 data class ShoppingListUiState(
     val items: List<ShoppingItem> = emptyList(),
     val newItemText: String = "",
-    val errorMessage: String = "" // добавляем поле для сообщений об ошибках
+    val errorMessage: String = ""
 )
 
 class ShoppingViewModel : ViewModel() {
@@ -26,24 +26,16 @@ class ShoppingViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 newItemText = text,
-                errorMessage = "" // очищаем ошибку при изменении текста
+                errorMessage = ""
             )
         }
     }
 
-    /**
-     * Проверка: есть ли в строке недопустимые символы
-     * Разрешаем: буквы (RU/EN), цифры, пробелы, дефис, точку
-     * Запрещаем: спецсимволы типа !@#$%^&*()_+={}[]|\\:;\"'<>,?/`~
-     */
     private fun hasInvalidCharacters(text: String): Boolean {
         val allowedPattern = Regex("^[a-zA-Zа-яА-ЯёЁ0-9\\s\\-\\.]+$")
         return !allowedPattern.matches(text)
     }
 
-    /**
-     * Проверка: есть ли товар с таким названием в списке (без учета регистра)
-     */
     private fun isDuplicateItem(name: String): Boolean {
         val trimmedName = name.trim()
         return _uiState.value.items.any {
@@ -54,7 +46,6 @@ class ShoppingViewModel : ViewModel() {
     fun addItem() {
         val currentText = _uiState.value.newItemText
 
-        // ПРОВЕРКА 1: Пустая строка
         if (currentText.isBlank()) {
             _uiState.update {
                 it.copy(errorMessage = "❌ Ошибка: Название товара не может быть пустым!")
@@ -64,7 +55,6 @@ class ShoppingViewModel : ViewModel() {
 
         val trimmedText = currentText.trim()
 
-        // ПРОВЕРКА 2: Недопустимые символы
         if (hasInvalidCharacters(trimmedText)) {
             _uiState.update {
                 it.copy(errorMessage = "❌ Ошибка: Недопустимые символы! Используйте только буквы, цифры, пробелы, дефис и точку.")
@@ -72,7 +62,6 @@ class ShoppingViewModel : ViewModel() {
             return
         }
 
-        // ПРОВЕРКА 3: Слишком длинное название (максимум 50 символов)
         if (trimmedText.length > 50) {
             _uiState.update {
                 it.copy(errorMessage = "❌ Ошибка: Название не должно превышать 50 символов! (сейчас ${trimmedText.length})")
@@ -80,7 +69,6 @@ class ShoppingViewModel : ViewModel() {
             return
         }
 
-        // ПРОВЕРКА 4: Слишком короткое название (минимум 2 символа)
         if (trimmedText.length < 2) {
             _uiState.update {
                 it.copy(errorMessage = "❌ Ошибка: Название должно содержать минимум 2 символа!")
@@ -88,7 +76,6 @@ class ShoppingViewModel : ViewModel() {
             return
         }
 
-        // ПРОВЕРКА 5: Дубликат товара
         if (isDuplicateItem(trimmedText)) {
             _uiState.update {
                 it.copy(errorMessage = "⚠️ Внимание: Товар \"$trimmedText\" уже есть в списке!")
@@ -96,7 +83,6 @@ class ShoppingViewModel : ViewModel() {
             return
         }
 
-        // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - добавляем товар
         _uiState.update { currentState ->
             val newId = (currentState.items.maxOfOrNull { it.id } ?: 0) + 1
             val newItem = ShoppingItem(
@@ -106,7 +92,7 @@ class ShoppingViewModel : ViewModel() {
             currentState.copy(
                 items = currentState.items + newItem,
                 newItemText = "",
-                errorMessage = "✅ Товар \"$trimmedText\" успешно добавлен!" // сообщение об успехе
+                errorMessage = "✅ Товар \"$trimmedText\" успешно добавлен!"
             )
         }
     }
@@ -132,7 +118,49 @@ class ShoppingViewModel : ViewModel() {
         }
     }
 
-    // Очистить сообщение об ошибке (можно вызвать через таймер)
+    /**
+     * 🗑️ УДАЛЕНИЕ ВСЕГО СПИСКА
+     * Очищает все товары и показывает сообщение
+     */
+    fun deleteAllItems() {
+        _uiState.update { currentState ->
+            if (currentState.items.isEmpty()) {
+                // Если список уже пуст - показываем сообщение
+                currentState.copy(
+                    errorMessage = "📭 Список и так пуст!"
+                )
+            } else {
+                // Очищаем список и показываем сколько удалили
+                currentState.copy(
+                    items = emptyList(),
+                    errorMessage = "🗑️ Удалено ${currentState.items.size} товаров!",
+                    newItemText = "" // очищаем поле ввода
+                )
+            }
+        }
+    }
+
+    /**
+     * Удаление только купленных товаров
+     */
+    fun deleteBoughtItems() {
+        _uiState.update { currentState ->
+            val boughtItems = currentState.items.filter { it.isBought }
+            val remainingItems = currentState.items.filter { !it.isBought }
+
+            if (boughtItems.isEmpty()) {
+                currentState.copy(
+                    errorMessage = "⚠️ Нет купленных товаров для удаления!"
+                )
+            } else {
+                currentState.copy(
+                    items = remainingItems,
+                    errorMessage = "✅ Удалено ${boughtItems.size} купленных товаров!"
+                )
+            }
+        }
+    }
+
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = "") }
     }

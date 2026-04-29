@@ -14,7 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -56,10 +59,9 @@ class MainActivity : ComponentActivity() {
 fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Автоматически очищаем сообщение об ошибке через 3 секунды
     LaunchedEffect(uiState.errorMessage) {
         if (uiState.errorMessage.isNotEmpty() &&
-            (uiState.errorMessage.contains("✅") || uiState.errorMessage.contains("❌") || uiState.errorMessage.contains("⚠️"))) {
+            (uiState.errorMessage.contains("✅") || uiState.errorMessage.contains("❌") || uiState.errorMessage.contains("⚠️") || uiState.errorMessage.contains("🗑️"))) {
             delay(3000)
             viewModel.clearErrorMessage()
         }
@@ -71,7 +73,21 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
                 title = { Text("📝 Список покупок") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                ),
+                actions = {
+                    // Кнопка "Удалить всё" в верхней панели
+                    if (uiState.items.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.deleteAllItems() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteSweep,
+                                contentDescription = "Удалить всё",
+                                tint = Color.Red
+                            )
+                        }
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -110,14 +126,59 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
                         }
                     }
 
-                    // Отображение сообщений об ошибках/успехе
+                    // Кнопки массовых операций
+                    if (uiState.items.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Кнопка "Удалить всё"
+                            Button(
+                                onClick = { viewModel.deleteAllItems() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                                Text("Удалить всё")
+                            }
+
+                            // Кнопка "Удалить купленные" (дополнительно, по желанию)
+                            if (uiState.items.any { it.isBought }) {
+                                Button(
+                                    onClick = { viewModel.deleteBoughtItems() },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFF9800)
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ShoppingCart,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    )
+                                    Text("Удалить купленные")
+                                }
+                            }
+                        }
+                    }
+
+                    // Отображение сообщений
                     if (uiState.errorMessage.isNotEmpty()) {
                         Text(
                             text = uiState.errorMessage,
                             modifier = Modifier.padding(top = 8.dp),
                             color = when {
                                 uiState.errorMessage.contains("✅") -> Color.Green
-                                uiState.errorMessage.contains("⚠️") -> Color(0xFFFF9800) // Оранжевый
+                                uiState.errorMessage.contains("⚠️") -> Color(0xFFFF9800)
+                                uiState.errorMessage.contains("🗑️") -> Color(0xFF2196F3)
                                 else -> Color.Red
                             },
                             style = MaterialTheme.typography.bodySmall
@@ -128,11 +189,47 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel = viewModel()) {
 
             // Статистика списка
             if (uiState.items.isNotEmpty()) {
-                Text(
-                    text = "📊 Всего: ${uiState.items.size} | ✅ Куплено: ${uiState.items.count { it.isBought }}",
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Text(
+                            text = "📊 Всего: ${uiState.items.size}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "✅ Куплено: ${uiState.items.count { it.isBought }}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Green
+                        )
+                        Text(
+                            text = "⏳ Осталось: ${uiState.items.count { !it.isBought }}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFFF9800)
+                        )
+                    }
+                }
+            } else {
+                // Пустое состояние
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Text(
+                        text = "🛒 Список покупок пуст. Добавьте товары!",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Gray
+                    )
+                }
             }
 
             // Список товаров

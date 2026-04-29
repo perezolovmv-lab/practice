@@ -19,11 +19,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name="com.example.shoppinglist.ShoppingListApp"
-            android:exported="false"
-            android:label="@string/title_activity_shopping_list_app"
-            android:theme="@style/Theme.Draft" />
     </application>
 
 </manifest>

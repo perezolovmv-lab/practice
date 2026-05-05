@@ -12,4 +12,7 @@ interface DepositDao {
 
     @Query("SELECT * FROM deposits ORDER BY id DESC")
     fun getAllHistory(): LiveData<List<Deposit>>
+
+    @Query("DELETE FROM deposits")
+    suspend fun deleteAll()
 }

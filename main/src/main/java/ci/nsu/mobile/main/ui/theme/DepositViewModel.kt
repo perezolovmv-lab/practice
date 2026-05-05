@@ -14,10 +14,9 @@ import java.util.Locale
 import kotlin.math.pow
 
 class DepositViewModel(application: Application) : AndroidViewModel(application) {
-    private val dao = AppDatabase.Companion.getDatabase(application).depositDao()
+    private val dao = AppDatabase.getDatabase(application).depositDao()
     val history: LiveData<List<Deposit>> = dao.getAllHistory()
 
-    // Поля ввода (состояние)
     var amount = mutableStateOf("")
     var months = mutableStateOf("")
     var rate = mutableStateOf(15.0)
@@ -29,7 +28,6 @@ class DepositViewModel(application: Application) : AndroidViewModel(application)
         val r = rate.value / 100 / 12
         val pmt = topUp.value.toDoubleOrNull() ?: 0.0
 
-        // Формула сложного процента с аннуитетным пополнением
         val finalAmount = if (r > 0) {
             p * (1 + r).pow(n.toDouble()) + pmt * (((1 + r).pow(n.toDouble()) - 1) / r)
         } else {
@@ -49,6 +47,10 @@ class DepositViewModel(application: Application) : AndroidViewModel(application)
 
     fun save(deposit: Deposit) = viewModelScope.launch {
         dao.insert(deposit)
+    }
+
+    fun clearHistory() = viewModelScope.launch {
+        dao.deleteAll()
     }
 
     fun clearInputs() {

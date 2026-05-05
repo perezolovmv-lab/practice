@@ -14,30 +14,25 @@ import java.util.Locale
 import kotlin.math.pow
 
 class DepositViewModel(application: Application) : AndroidViewModel(application) {
-    // Инициализация DAO через наш синглтон БД
     private val dao = AppDatabase.getDatabase(application).depositDao()
-
-    // Переменная для хранения списка истории, которая будет "наблюдаться" в UI
     val history: LiveData<List<Deposit>> = dao.getAllHistory()
 
-    // mutableStateOf позволяет Compose перерисовывать текстовые поля при вводе
+    // Состояния полей ввода
     var amount = mutableStateOf("")
     var months = mutableStateOf("")
     var rate = mutableStateOf(15.0)
     var topUp = mutableStateOf("")
 
-    // Основная математическая логика расчёта
     fun calculateResult(): Deposit {
-        val p = amount.value.toDoubleOrNull() ?: 0.0     // Стартовая сумма
-        val n = months.value.toIntOrNull() ?: 0         // Кол-во месяцев
-        val r = rate.value / 100 / 12                   // Месячная ставка
-        val pmt = topUp.value.toDoubleOrNull() ?: 0.0   // Ежемесячный взнос
+        val p = amount.value.toDoubleOrNull() ?: 0.0
+        val n = months.value.toIntOrNull() ?: 0
+        val r = rate.value / 100 / 12
+        val pmt = topUp.value.toDoubleOrNull() ?: 0.0
 
-        // Формула сложного процента: сумма * (1+r)^n + пополнения
         val finalAmount = if (r > 0) {
             p * (1 + r).pow(n.toDouble()) + pmt * (((1 + r).pow(n.toDouble()) - 1) / r)
         } else {
-            p + (pmt * n) // Если процент 0
+            p + (pmt * n)
         }
 
         return Deposit(
@@ -51,17 +46,17 @@ class DepositViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    // Сохранение в БД через корутину (viewModelScope), чтобы не вешать экран
-    fun save(deposit: Deposit) = viewModelScope.launch {
+    // Сохранение и автоматический сброс полей
+    fun saveAndReset(deposit: Deposit) = viewModelScope.launch {
         dao.insert(deposit)
+        clearInputs() // Обнуляем поля сразу после записи в БД
     }
 
-    // Удаление всех записей из БД
     fun clearHistory() = viewModelScope.launch {
         dao.deleteAll()
     }
 
-    // Очистка полей ввода для нового расчёта
+    // Метод для обнуления всех строк ввода
     fun clearInputs() {
         amount.value = ""
         months.value = ""
